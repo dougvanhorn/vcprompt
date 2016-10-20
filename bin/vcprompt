@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 """
 Usage: vcprompt [options]
 
@@ -184,8 +183,8 @@ def vcprompt(options):
 
                 conf = vcs(options)
                 prompt = options.format
-                for key, value in conf.items():
-                    if isinstance(value, unicode):
+                for key, value in list(conf.items()):
+                    if isinstance(value, str):
                         conf[key] = value.encode('utf-8')
 
                 # Get hash and revision, with fallback to each other
@@ -220,8 +219,17 @@ def vcprompt(options):
                                  '%P': (lambda: os.path.basename(options.path)),
                                  '%p': (lambda: relpath(original_path, options.path))}
 
-                for (key, func) in prompt_format.iteritems():
-                    prompt = prompt.replace(key, format_dict.get(key, default_format).format(func()))
+                for (key, func) in prompt_format.items():
+                    format_string = format_dict.get(key, default_format)
+
+                    # Output from function can be bytes, so decode into a string.
+                    value = func()
+                    try:
+                        value = value.decode('utf-8')
+                    except AttributeError:
+                        pass
+                    _ = format_string.format(value)
+                    prompt = prompt.replace(key, _)
 
                 return prompt
 
@@ -532,7 +540,7 @@ def git(options):
         output, returncode = popen('git diff --numstat --exit-code')
 
         if returncode == 1:
-            modified_count = output.count('\n')
+            modified_count = output.count(b'\n')
             modified = options.modified + str(modified_count)
         else:
             modified = ''
@@ -543,7 +551,7 @@ def git(options):
 
         if returncode == 0:
             if output:
-                untracked_count = output.count('\n')
+                untracked_count = output.count(b'\n')
                 untracked = options.untracked + str(untracked_count)
             else:
                 untracked = ''
@@ -553,7 +561,7 @@ def git(options):
         output, returncode = popen('git diff --numstat --cached --exit-code')
 
         if returncode == 1:
-            staged_count = output.count('\n')
+            staged_count = output.count(b'\n')
             staged = options.staged + str(staged_count)
         else:
             staged = ''
@@ -563,7 +571,7 @@ def git(options):
         output, returncode = popen('git stash list')
 
         stashed = ''
-        stash_count = output.count('\n')
+        stash_count = output.count(b'\n')
 
         if stash_count > 0:
             stashed = options.stashed + str(stash_count)
@@ -657,14 +665,14 @@ def svn(options):
             matches = re.search(regex, tag.childNodes[0].data)
             if matches:
                 branch = matches.groups(0)[0]
-                if isinstance(branch, unicode):
+                if isinstance(branch, str):
                     branch = branch.encode('utf-8')
 
         # revision/sha
         if re.search('%(r|h)', options.format):
             tag = dom.getElementsByTagName('commit')[0]
             revision = tag.getAttribute('revision')
-            if isinstance(revision, unicode):
+            if isinstance(revision, str):
                 revision = revision.encode('utf-8')
 
     # modified/staged/untracked
